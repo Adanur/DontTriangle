@@ -7,11 +7,9 @@ import java.util.TimerTask;
 
 import org.andengine.engine.Engine;
 import org.andengine.engine.camera.Camera;
-import org.andengine.entity.modifier.AlphaModifier;
-import org.andengine.entity.modifier.ColorModifier;
-import org.andengine.entity.modifier.FadeInModifier;
-import org.andengine.entity.modifier.FadeOutModifier;
-import org.andengine.entity.modifier.ScaleModifier;
+import org.andengine.entity.modifier.LoopEntityModifier;
+import org.andengine.entity.modifier.MoveModifier;
+import org.andengine.entity.modifier.RotationModifier;
 import org.andengine.entity.primitive.Line;
 import org.andengine.entity.scene.CameraScene;
 import org.andengine.entity.scene.IOnSceneTouchListener;
@@ -20,59 +18,55 @@ import org.andengine.entity.scene.background.Background;
 import org.andengine.entity.scene.background.SpriteBackground;
 import org.andengine.entity.sprite.Sprite;
 import org.andengine.entity.text.Text;
-import org.andengine.entity.text.TextOptions;
 import org.andengine.input.touch.TouchEvent;
 import org.andengine.opengl.font.Font;
 import org.andengine.opengl.font.FontFactory;
 import org.andengine.opengl.texture.TextureOptions;
 import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlas;
 import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlasTextureRegionFactory;
-import org.andengine.opengl.texture.atlas.buildable.BuildableTextureAtlas;
 import org.andengine.opengl.texture.region.ITextureRegion;
-import org.andengine.opengl.texture.region.TextureRegion;
 import org.andengine.ui.activity.BaseGameActivity;
-import org.andengine.util.adt.align.HorizontalAlign;
-
 import android.graphics.Color;
-import android.graphics.Typeface;
-import android.renderscript.Program.TextureType;
 import android.util.Log;
-
+import app.shephertz.multiplayer.WarpController;
 
 public class SceneManager {
 	private AllScenes currentScene;
 	private BaseGameActivity activity;
-	private Engine engine;
-	private Camera camera;
+	Engine engine;
+	Camera camera;
 	private List<BitmapTextureAtlas> levelTA=new ArrayList<BitmapTextureAtlas>();
-	private List<ITextureRegion> levelTR=new ArrayList<ITextureRegion>();
+	List<ITextureRegion> levelTR=new ArrayList<ITextureRegion>();
 	private List<Sprite> spriteLevel=new ArrayList<Sprite>();
 	private List<Integer> levelDots=new ArrayList<Integer>();
-	private Scene splashScene, gameScene, menuScene,levelScene,gameWinScene,gamePauseScene,gameOverScene;
+	public Scene splashScene,gameScene,menuScene,levelScene,gameWinScene,gamePauseScene,gameOverScene,multiPlayerGameScene,multiLoadingScene;
 	private PointsKoordinat koorNesne;
-	private int koorIndis = 0,koorCount = 12,level,fark=(-1);
-	private Sprite sekil,aSprite[] = new Sprite[koorCount];
+	private int koorIndis = 0,koorCount = 12,level,fark=(-1),cizgiCount=0,TiklananSekilIndis=0,levelCount=18,hamleSayisi=0,a=100,b=100;
+	public Sprite sekil,aSprite[] = new Sprite[koorCount];
 	private float TiklananSekilX = 0, TiklananSekilY = 0;	
-	private int[][] koordinatlar;
-	private boolean[][] cizilenCizgiArray=new boolean[koorCount][koorCount];
-	private TriangleControl triControl=new TriangleControl(koorCount, cizilenCizgiArray);
-	private int[] ucgen=new int[3];
+	int[][] koordinatlar;
+	public boolean[][] cizilenCizgiArray=new boolean[koorCount][koorCount];
+	TriangleControl triControl=new TriangleControl(koorCount, cizilenCizgiArray);
+	int[] ucgen=new int[3];
 	private Line[] cizgi=new Line[100];
-	private int cizgiCount=0,TiklananSekilIndis=0,levelCount=18,hamleSayisi=0;
 	private Line beforeLine=null;
-	private boolean oyunBitti=false,sonuc,
-			isCreatedResources=false,isCreateLevelTATR=false,hamleliOyunMu=false;
+	public boolean oyunBitti=false,sonuc,isCreatedResources=false,isCreateLevelTATR=false,
+			hamleliOyunMu=false,isGameStarted = false,isMultiPlayGame=false,isUserTurn = false;
 	private myDatabase db;
 	private String[] levelPngArray=new String[20];
 	private Random randomSayi;
-	private CreateShape splashBack,splashText,splashLoadingText,point, pointModif,menuPlayButton,
-						menuPlayHoverButton,menuBack,pauseMainMenuButton,pauseResumeButton,
-						winMainButton ,winNextButton,OverMainButton,OverReplayButton,youWinText,
-						youLoseText,pausedText;
-	Sprite dene;
+	public CreateShape splashBack,splashText,splashLoadingText,point,pointModif,menuPlayButton,
+					menuPlayHoverButton,menuMultiPlayButton,menuBack,pauseMainMenuButton,pauseResumeButton,
+					winMainButton,winNextButton,OverMainButton,OverReplayButton,youWinText,youLoseText,pausedText,grayBack,
+					waitUserText,gameStartText,loadingGif,yourTurn,rivalsTurn;
+	public MultiplayerMetods MulMetdsNsn;
+	public Modifiers modifNsn;
+	public PlayedLevel plyLvlNesn;
+	Font mFont;
+	Text text;
 	
 	public enum AllScenes {
-		SPLASH, MENU, GAME, LEVELS
+		SPLASH, MENU, GAME, LEVELS, MULTIGAME , MULTILOADING
 	}
 	public SceneManager(BaseGameActivity act, Engine eng, Camera cam,myDatabase db) {
 		this.activity = act;
@@ -84,7 +78,16 @@ public class SceneManager {
 	public void loadGameResources(){
 		
 		BitmapTextureAtlasTextureRegionFactory.setAssetBasePath("gfx/");
+		FontFactory.setAssetBasePath("gfx/");
 		
+		mFont = FontFactory.createFromAsset(engine.getFontManager(),
+				engine.getTextureManager(), 256, 256, this.activity.getAssets(), 
+				"helsinki.ttf", 32f, true, org.andengine.util.adt.color.Color.BLACK_ABGR_PACKED_INT);
+		mFont.load();
+		
+		  //m_Scene.attachChild(text);
+		modifNsn= new Modifiers(this);
+		plyLvlNesn = new PlayedLevel(this);
 		splashText = new CreateShape(this.activity.getTextureManager(), 1024, 1024, 
 				TextureOptions.BILINEAR_PREMULTIPLYALPHA, this.activity, "splashtext.png", 0, 0);
 		splashBack = new CreateShape(this.activity.getTextureManager(), 1024, 1024, 
@@ -100,6 +103,8 @@ public class SceneManager {
 		
 		menuPlayButton = new CreateShape(this.activity.getTextureManager(), 1024, 1024, 
 				TextureOptions.BILINEAR_PREMULTIPLYALPHA, this.activity, "play.png", 0, 0);
+		menuMultiPlayButton = new CreateShape(this.activity.getTextureManager(), 1024, 1024, 
+				TextureOptions.BILINEAR_PREMULTIPLYALPHA, this.activity, "multiplay.png", 0, 0);
 		menuPlayHoverButton = new CreateShape(this.activity.getTextureManager(), 1024, 1024, 
 				TextureOptions.BILINEAR_PREMULTIPLYALPHA, this.activity, "playhover.png", 0, 0);
 		menuBack = new CreateShape(this.activity.getTextureManager(), 1024, 1024, 
@@ -122,6 +127,19 @@ public class SceneManager {
 				TextureOptions.BILINEAR_PREMULTIPLYALPHA, this.activity, "lose.png", 0, 0);
 		pausedText = new CreateShape(this.activity.getTextureManager(), 1024, 1024, 
 				TextureOptions.BILINEAR_PREMULTIPLYALPHA, this.activity, "paused.png", 0, 0);
+		grayBack = new CreateShape(this.activity.getTextureManager(), 1024, 1024, 
+				TextureOptions.BILINEAR_PREMULTIPLYALPHA, this.activity, "grayBack.png", 0, 0);
+		waitUserText = new CreateShape(this.activity.getTextureManager(), 1024, 1024, 
+				TextureOptions.BILINEAR_PREMULTIPLYALPHA, this.activity, "waitusertext.png", 0, 0);
+		gameStartText = new CreateShape(this.activity.getTextureManager(), 1024, 1024, 
+				TextureOptions.BILINEAR_PREMULTIPLYALPHA, this.activity, "gamestartText.png", 0, 0);
+		loadingGif = new CreateShape(this.activity.getTextureManager(), 1024, 1024, 
+				TextureOptions.BILINEAR_PREMULTIPLYALPHA, this.activity, "loadinggif.png", 0, 0);
+		yourTurn = new CreateShape(this.activity.getTextureManager(), 512, 512, 
+				TextureOptions.BILINEAR_PREMULTIPLYALPHA, this.activity, "yourturn.png", 0, 0);
+		rivalsTurn = new CreateShape(this.activity.getTextureManager(), 512, 512, 
+				TextureOptions.BILINEAR_PREMULTIPLYALPHA, this.activity, "rivalsTurn.png", 0, 0);
+		
 		levelDots.add(4);
 		levelDots.add(5);
 		for (int i = 6; i <= 9; i++) {
@@ -129,9 +147,16 @@ public class SceneManager {
 				levelDots.add(i);
 			}
 		}
-		
 		isCreatedResources=true;
 	}
+	
+	private void connectToAppWarp(){
+		if (MulMetdsNsn==null) MulMetdsNsn = new MultiplayerMetods(this);
+		WarpController.getInstance().setActivity(this);
+		Util.UserName = Util.getRandomHexString(10);
+		WarpController.getInstance().startApp(Util.UserName, this);
+	}
+	
 	public void createLevelTATR() {
 		levelTA.clear();
 		levelTR.clear();
@@ -144,22 +169,32 @@ public class SceneManager {
 					levelPngArray[i], 0,0));
 			levelTA.get(i).load();
 		}
-		
 	}
 
 	public Scene createGamePauseScene() {
+		oyunBitti=true;
 		gamePauseScene = new CameraScene(this.camera);
-		pausedText.oSprite = new Sprite(camera.getWidth()/2, camera.getHeight()/2+150, pausedText.oTextureRegion, engine.getVertexBufferObjectManager());
-		pausedText.oSprite.setScale(camera.getWidth()/(camera.getHeight()-40));
+		pausedText.oSprite = new Sprite(camera.getWidth()/2, camera.getHeight()+70, pausedText.oTextureRegion, engine.getVertexBufferObjectManager());
+		grayBack.oSprite = new Sprite(camera.getWidth()/2, camera.getHeight()/2, grayBack.oTextureRegion, engine.getVertexBufferObjectManager());
+		
+		//grayBack.oSprite.setScale(3);
+		
+		MoveModifier ptxMvMod= new MoveModifier(0.5f, camera.getWidth()/2, camera.getHeight() +70, camera.getWidth()/2, camera.getHeight()-90);
+		pausedText.oSprite.registerEntityModifier(ptxMvMod);
+		gamePauseScene.attachChild(grayBack.oSprite);
 		gamePauseScene.attachChild(pausedText.oSprite);
 		
 		pauseMainMenuButton.oSprite = new Sprite(0, 0, pauseMainMenuButton.oTextureRegion, engine.getVertexBufferObjectManager()){
 			@Override
 			public boolean onAreaTouched(TouchEvent pSceneTouchEvent,
 					float pTouchAreaLocalX, float pTouchAreaLocalY) {
-				if (pSceneTouchEvent.isActionDown()) {
-					//createMenuScene();
+				if (pSceneTouchEvent.isActionUp()) {
 					isCreateLevelTATR=true;
+					if (isMultiPlayGame) {
+						isGameStarted = false;
+						isUserTurn = false;
+						WarpController.getInstance().stopApp();
+					}
 					setCurrentScene(AllScenes.MENU);
 				}
 				return super
@@ -167,8 +202,10 @@ public class SceneManager {
 			}
 		};
 		gamePauseScene.setBackgroundEnabled(false);
-		pauseMainMenuButton.oSprite.setScale(camera.getWidth()/(camera.getHeight()));
-		pauseMainMenuButton.oSprite.setPosition(camera.getWidth()/2, camera.getHeight()/2);
+		pauseMainMenuButton.oSprite.setScale(0.45f);
+		pauseMainMenuButton.oSprite.setPosition(-65, camera.getHeight()/2);
+		MoveModifier pmbMvMod= new MoveModifier(0.5f, -65, camera.getHeight()/2, camera.getWidth()/2-65, camera.getHeight()/2);
+		pauseMainMenuButton.oSprite.registerEntityModifier(pmbMvMod);
 		gamePauseScene.attachChild(pauseMainMenuButton.oSprite);
 		gamePauseScene.registerTouchArea(pauseMainMenuButton.oSprite);
 		
@@ -176,22 +213,34 @@ public class SceneManager {
 			@Override
 			public boolean onAreaTouched(TouchEvent pSceneTouchEvent,
 					float pTouchAreaLocalX, float pTouchAreaLocalY) {
-				if (pSceneTouchEvent.isActionDown()) {
+				if (pSceneTouchEvent.isActionUp()) {
+					oyunBitti=false;
+					if (gameScene.getChildScene()!=null)
 					gameScene.clearChildScene();
 				}
 				return super
 						.onAreaTouched(pSceneTouchEvent, pTouchAreaLocalX, pTouchAreaLocalY);
 			}
 		};
-		pauseResumeButton.oSprite.setScale(camera.getWidth()/(camera.getHeight()));
-		pauseResumeButton.oSprite.setPosition(camera.getWidth()/2, camera.getHeight()/2+80);
+		pauseResumeButton.oSprite.setScale(0.45f);
+		pauseResumeButton.oSprite.setPosition(camera.getWidth()+65, camera.getHeight()/2);
+		MoveModifier prbMvMod= new MoveModifier(0.5f, camera.getWidth()+65, camera.getHeight()/2, camera.getWidth()/2+65, camera.getHeight()/2);
+		pauseResumeButton.oSprite.registerEntityModifier(prbMvMod);
 		gamePauseScene.attachChild(pauseResumeButton.oSprite);
 		gamePauseScene.registerTouchArea(pauseResumeButton.oSprite);
-		gameScene.setChildScene(gamePauseScene);
+		if (isMultiPlayGame) {
+			multiPlayerGameScene.setChildScene(gamePauseScene);
+		}else gameScene.setChildScene(gamePauseScene);
 		return gamePauseScene;
 	
 	}
 	public Scene createGameOverScene() {
+		oyunBitti=true;
+		if (isMultiPlayGame){
+			//WarpController.getInstance().stopApp();
+			yourTurn.oSprite.setVisible(false);
+			rivalsTurn.oSprite.setVisible(false);
+			}
 		gameOverScene = new CameraScene(this.camera);
 		youLoseText.oSprite = new Sprite(camera.getWidth()/2, camera.getHeight()/2+150, youLoseText.oTextureRegion, engine.getVertexBufferObjectManager());
 		youLoseText.oSprite.setScale(camera.getWidth()/(camera.getHeight()-40));
@@ -201,8 +250,13 @@ public class SceneManager {
 			@Override
 			public boolean onAreaTouched(TouchEvent pSceneTouchEvent,
 					float pTouchAreaLocalX, float pTouchAreaLocalY) {
-				if (pSceneTouchEvent.isActionDown()) {
+				if (pSceneTouchEvent.isActionUp()) {
 					isCreateLevelTATR=true;
+					if (isMultiPlayGame) {
+						isGameStarted = false;
+						isUserTurn = false;
+						WarpController.getInstance().stopApp();
+					}
 					setCurrentScene(AllScenes.MENU);
 				}
 				return super
@@ -219,7 +273,7 @@ public class SceneManager {
 			@Override
 			public boolean onAreaTouched(TouchEvent pSceneTouchEvent,
 					float pTouchAreaLocalX, float pTouchAreaLocalY) {
-				if (pSceneTouchEvent.isActionDown()) {
+				if (pSceneTouchEvent.isActionUp()) {
 					oyunBitti=false;
 					loadGame(level);
 				}
@@ -231,12 +285,20 @@ public class SceneManager {
 		OverReplayButton.oSprite.setPosition(camera.getWidth()/2, camera.getHeight()/2+80);
 		gameOverScene.attachChild(OverReplayButton.oSprite);
 		gameOverScene.registerTouchArea(OverReplayButton.oSprite);
-		gameScene.setChildScene(gameOverScene);
+		if (isMultiPlayGame) {
+			multiPlayerGameScene.setChildScene(gameOverScene);
+		}else gameScene.setChildScene(gameOverScene);
 		return gameOverScene;
 	
 	}
 	
 	public Scene createGameWinScene() {
+		oyunBitti=true;
+		if (isMultiPlayGame){
+		//WarpController.getInstance().stopApp();
+		yourTurn.oSprite.setVisible(false);
+		rivalsTurn.oSprite.setVisible(false);
+		}
 		gameWinScene = new CameraScene(this.camera);
 		youWinText.oSprite = new Sprite(camera.getWidth()/2, camera.getHeight()/2+150, youWinText.oTextureRegion, engine.getVertexBufferObjectManager());
 		youWinText.oSprite.setScale(camera.getWidth()/(camera.getHeight()-40));
@@ -245,7 +307,7 @@ public class SceneManager {
 			@Override
 			public boolean onAreaTouched(TouchEvent pSceneTouchEvent,
 					float pTouchAreaLocalX, float pTouchAreaLocalY) {
-				if (pSceneTouchEvent.isActionDown()) {
+				if (pSceneTouchEvent.isActionUp()) {
 					oyunBitti=false;
 					level++;
 					loadGame(level);
@@ -264,8 +326,14 @@ public class SceneManager {
 			@Override
 			public boolean onAreaTouched(TouchEvent pSceneTouchEvent,
 					float pTouchAreaLocalX, float pTouchAreaLocalY) {
-				if (pSceneTouchEvent.isActionDown()) {
+				if (pSceneTouchEvent.isActionUp()) {
 					isCreateLevelTATR=true;
+					if (isMultiPlayGame) {
+						isGameStarted = false;
+						isUserTurn = false;
+						WarpController.getInstance().stopApp();
+					}
+					
 					setCurrentScene(AllScenes.MENU);
 				}
 				return super
@@ -291,10 +359,10 @@ public class SceneManager {
 					engine.getVertexBufferObjectManager());
 			aSprite[koorIndis].setScale(camera.getHeight()/(camera.getWidth()+150));
 		}
-
 	}
 	
 	public Scene createLevelScene() {
+		Log.i("start","girdi");
 		int artma=1,karsilastir = 0,a=0,deger=(-1);
 		fark=(-1);
 		spriteLevel.clear();
@@ -312,16 +380,14 @@ public class SceneManager {
 					oyunBitti=false;
 					level=levell+1;
 					if (db.isLevelUnLocked(levell+1).equals("true")){
-						modifLevel(pSceneTouchEvent.getX(),pSceneTouchEvent.getY(),levell);
+						modifNsn.modifLevel(pSceneTouchEvent.getX(),pSceneTouchEvent.getY(),levell);
 						new Timer().schedule(new TimerTask() {   
 						    @Override
 						    public void run() {
 						    	loadGame(level);
 						    }
 						}, 900);
-						
 					}
-					
 				}
 				return super
 						.onAreaTouched(pSceneTouchEvent, pTouchAreaLocalX, pTouchAreaLocalY);
@@ -355,17 +421,19 @@ public class SceneManager {
 		}
 		return levelScene;
 		}
-	
-	public void loadGame(int level){
-		koorCount=levelDots.get(level-1);
-		drawDots();
+	public void refreshStates(){
 		cizgiCount=0;
 		for (int i = 0; i < cizilenCizgiArray.length; i++) {
 			for (int j = 0; j < cizilenCizgiArray[i].length; j++) {
 				cizilenCizgiArray[i][j]=false;
 			}
-			
 		}
+	}
+	
+	public void loadGame(int level){
+		koorCount=levelDots.get(level-1);
+		drawDots();
+		refreshStates();
 		hamleliOyunMu=false;
 		
 		if (isCreatedResources==false)
@@ -375,7 +443,7 @@ public class SceneManager {
 		
 		for (int i = 1; i < 4; i++) {
 			if (level==i+2 || level==i+6 || level == i+10 || level == i+14) {
-				createPlayedLevel(i,koorCount);
+				plyLvlNesn.createPlayedLevel(i,koorCount);
 				hamleSayisi=i;
 			}
 		}
@@ -414,8 +482,8 @@ public class SceneManager {
 		SpriteBackground background = new SpriteBackground(1,1,1,menuBack.oSprite);
 		//set the background to scene
 		menuScene.setBackground(background);
-		menuPlayHoverButton.oSprite = new Sprite(camera.getWidth()/2, camera.getHeight()/2-(camera.getHeight()/5), menuPlayHoverButton.oTextureRegion, engine.getVertexBufferObjectManager());
-		menuPlayButton.oSprite = new Sprite(camera.getWidth()/2, camera.getHeight()/2-(camera.getHeight()/5), menuPlayButton.oTextureRegion, engine.getVertexBufferObjectManager()){
+		menuPlayHoverButton.oSprite = new Sprite(camera.getWidth()/2, camera.getHeight()/2-20, menuPlayHoverButton.oTextureRegion, engine.getVertexBufferObjectManager());
+		menuPlayButton.oSprite = new Sprite(camera.getWidth()/2, camera.getHeight()/2-20, menuPlayButton.oTextureRegion, engine.getVertexBufferObjectManager()){
 			@Override
 			public boolean onAreaTouched(TouchEvent pSceneTouchEvent,
 					float pTouchAreaLocalX, float pTouchAreaLocalY) {
@@ -429,7 +497,7 @@ public class SceneManager {
 						createLevelTATR();
 						isCreateLevelTATR=false;
 					}
-					
+					isMultiPlayGame=false;
 						createLevelScene();
 					
 					setCurrentScene(AllScenes.LEVELS);
@@ -440,9 +508,29 @@ public class SceneManager {
 		};
 		menuPlayButton.oSprite.setScale(camera.getWidth()/camera.getHeight());
 		menuPlayHoverButton.oSprite.setScale(camera.getWidth()/camera.getHeight());
+		menuMultiPlayButton.oSprite = new Sprite(camera.getWidth()/2, camera.getHeight()/2-100, menuMultiPlayButton.oTextureRegion, engine.getVertexBufferObjectManager()){
+			@Override
+			public boolean onAreaTouched(TouchEvent pSceneTouchEvent,
+					float pTouchAreaLocalX, float pTouchAreaLocalY) {
+				// TODO Auto-generated method stub
+					if (pSceneTouchEvent.isActionUp()) {
+						oyunBitti=false;
+						isMultiPlayGame=true;
+						refreshStates();
+						connectToAppWarp();
+						createMultiLoadingScene();
+						setCurrentScene(AllScenes.MULTILOADING);
+					}
+				return super
+						.onAreaTouched(pSceneTouchEvent, pTouchAreaLocalX, pTouchAreaLocalY);
+			}
+		};
+		menuMultiPlayButton.oSprite.setScale(camera.getWidth()/camera.getHeight());
 		menuScene.registerTouchArea(menuPlayButton.oSprite);
 		menuScene.attachChild(menuPlayHoverButton.oSprite);
 		menuScene.attachChild(menuPlayButton.oSprite);
+		menuScene.attachChild(menuMultiPlayButton.oSprite);
+		menuScene.registerTouchArea(menuMultiPlayButton.oSprite);
 		
 		
 		Sprite icon = new Sprite(0, 0, splashText.oTextureRegion, engine.getVertexBufferObjectManager());
@@ -469,6 +557,116 @@ public class SceneManager {
 		});
 		return menuScene;
 	}
+	public Scene createMultiLoadingScene() {
+		multiLoadingScene = new Scene();
+		multiLoadingScene.setBackground(new Background(1.0f, 1.0f, 1.0f));
+		text = new Text(camera.getWidth()/2, camera.getHeight()/2-150, this.mFont, "Hello Android", this.activity.getVertexBufferObjectManager());
+		multiLoadingScene.attachChild(text);
+		text.setPosition(camera.getWidth()/2, camera.getHeight()/2-150);
+		loadingGif.oSprite = new Sprite(camera.getWidth()/2, camera.getHeight()/2, loadingGif.oTextureRegion, engine.getVertexBufferObjectManager());
+		loadingGif.oSprite.setScale(0.8f);
+		RotationModifier rtMod= new RotationModifier(2, 0, 360);
+				LoopEntityModifier loopMod = new LoopEntityModifier(rtMod);
+		loadingGif.oSprite.registerEntityModifier(loopMod);
+		multiLoadingScene.attachChild(loadingGif.oSprite);
+		waitUserText.oSprite = new Sprite(camera.getWidth()/2, camera.getHeight()-90, waitUserText.oTextureRegion, engine.getVertexBufferObjectManager());
+		waitUserText.oSprite.setVisible(false);
+		multiLoadingScene.attachChild(waitUserText.oSprite);
+		gameStartText.oSprite = new Sprite(camera.getWidth()/2, camera.getHeight()-90, gameStartText.oTextureRegion, engine.getVertexBufferObjectManager());
+		gameStartText.oSprite.setVisible(false);
+		multiLoadingScene.attachChild(gameStartText.oSprite);
+		yourTurn.oSprite = new Sprite(camera.getWidth()/2, camera.getHeight()-100, yourTurn.oTextureRegion, engine.getVertexBufferObjectManager());
+		 yourTurn.oSprite.setVisible(false);
+		 rivalsTurn.oSprite = new Sprite(camera.getWidth()/2, camera.getHeight()-100, rivalsTurn.oTextureRegion, engine.getVertexBufferObjectManager());
+		 rivalsTurn.oSprite.setVisible(false);
+		
+		return multiLoadingScene;
+	}
+	
+	public Scene createMultiPlayerGameScene() {
+		multiPlayerGameScene = new Scene();
+		multiPlayerGameScene.setBackground(new Background(1.0f, 1.0f, 1.0f));
+		koorCount=5;
+		drawDots();
+		
+		multiPlayerGameScene.setOnSceneTouchListener(new IOnSceneTouchListener() {
+			
+			@Override
+			public boolean onSceneTouchEvent(Scene pScene, TouchEvent pSceneTouchEvent) {
+				switch (pSceneTouchEvent.getAction()) {
+				case TouchEvent.ACTION_DOWN:
+					if (oyunBitti==false) {
+					for (int i = 0; i < koorCount; i++) {
+						if (pSceneTouchEvent.getX() > aSprite[i].getX()-((aSprite[i].getWidthScaled()/2)+5)
+								&& pSceneTouchEvent.getX() < aSprite[i].getX()+((aSprite[i].getWidthScaled()/2)+5)
+								&& pSceneTouchEvent.getY() > aSprite[i].getY()-((aSprite[i].getHeightScaled()/2)+5)
+								&& pSceneTouchEvent.getY() < aSprite[i].getY()+((aSprite[i].getHeightScaled()/2)+5)) {
+							
+							TiklananSekilX = aSprite[i].getX();
+							TiklananSekilY = aSprite[i].getY();
+							TiklananSekilIndis=i;
+							modifNsn.modifPoints(TiklananSekilX,TiklananSekilY);
+							sekil = aSprite[i];
+							a=i;
+						}
+						}
+					}
+					break;
+				case TouchEvent.ACTION_MOVE:
+					if(sekil!=null){
+						if (beforeLine!=null)
+							multiPlayerGameScene.detachChild(beforeLine);
+						
+						Line line=new Line(TiklananSekilX, TiklananSekilY, pSceneTouchEvent.getX(), pSceneTouchEvent.getY(), 10,
+								engine.getVertexBufferObjectManager());
+						line.setColor(Color.parseColor("#85B3FF"));
+						multiPlayerGameScene.attachChild(line);
+						beforeLine=line;						
+					}
+					break;
+				case TouchEvent.ACTION_UP:
+					float X=pSceneTouchEvent.getX();
+					float Y=pSceneTouchEvent.getY();
+					if (oyunBitti==false && sekil!=null) {
+					for (int i = 0; i < koorCount; i++) {		
+						if (beforeLine != null && cizilenCizgiArray[TiklananSekilIndis][i]==false) {	
+							multiPlayerGameScene.detachChild(beforeLine);
+							
+							if (X>aSprite[i].getX()-((aSprite[i].getWidthScaled()/2)+5) 
+							&& X<aSprite[i].getX()+((aSprite[i].getWidthScaled()/2)+5) 
+							&& Y>aSprite[i].getY()-((aSprite[i].getHeightScaled()/2)+5) 
+							&& Y<aSprite[i].getY()+((aSprite[i].getHeightScaled()/2)+5)) {	
+						
+								b=i;
+								
+								if(isGameStarted && isUserTurn){
+									
+									MulMetdsNsn.getIndex(a, b);
+								}
+								break;
+							}
+						}
+					}
+					sekil=null;
+					}
+					break;
+
+				default:
+					break;
+				}
+				return false;
+			}
+		});
+		 for (int i = 0; i < koorCount; i++) {
+			 multiPlayerGameScene.attachChild(aSprite[i]);
+			}
+		 
+		 
+		 multiPlayerGameScene.attachChild(yourTurn.oSprite);
+		 multiPlayerGameScene.attachChild(rivalsTurn.oSprite);
+		return multiPlayerGameScene;
+	}
+	
 	public Scene createGameScene() {
 		gameScene = new Scene();
 		gameScene.setBackground(new Background(1.0f, 1.0f, 1.0f));
@@ -490,7 +688,7 @@ public class SceneManager {
 							TiklananSekilX = aSprite[i].getX();
 							TiklananSekilY = aSprite[i].getY();
 							TiklananSekilIndis=i;
-							modifPoints(TiklananSekilX,TiklananSekilY);
+							modifNsn.modifPoints(TiklananSekilX,TiklananSekilY);
 							sekil = aSprite[i];
 						}
 						}
@@ -526,8 +724,8 @@ public class SceneManager {
 								drawLine(TiklananSekilX, TiklananSekilY,aSprite[i].getX(), aSprite[i].getY(), 10);
 								cizilenCizgiArray[TiklananSekilIndis][i]=true;
 								cizilenCizgiArray[i][TiklananSekilIndis]=true;
-								modifPoints(TiklananSekilX,TiklananSekilY);
-								modifPoints(aSprite[i].getX(),aSprite[i].getY());
+								modifNsn.modifPoints(TiklananSekilX,TiklananSekilY);
+								modifNsn.modifPoints(aSprite[i].getX(),aSprite[i].getY());
 								ucgen=triControl.fonkTriangleControl();
 								
 								if (hamleliOyunMu==false) {	
@@ -612,47 +810,16 @@ public class SceneManager {
 	public void passLevel(){
 		db.unLockLevel(level+1, "true");
 	}
-	public void modifPoints(float x,float y){
-		pointModif.oSprite = new Sprite(x,y, pointModif.oTextureRegion,
-				engine.getVertexBufferObjectManager());
-		pointModif.oSprite.setScale(camera.getHeight()/(camera.getWidth()+150));
-		//pointModif.oTexture.load();
-		
-		FadeOutModifier fadeOut = new FadeOutModifier(2);
-		ScaleModifier scaleUp = new ScaleModifier(2, camera.getHeight()/(camera.getWidth()+150), 2);
-		pointModif.oSprite.registerEntityModifier(fadeOut);
-		pointModif.oSprite.registerEntityModifier(scaleUp);
-		gameScene.attachChild(pointModif.oSprite);
-	}
-	public void modifLevel(float x,float y,int i){
-		Sprite levelsprt = new Sprite(x,y, levelTR.get(i),
-				engine.getVertexBufferObjectManager());
-		levelsprt.setScale(0.6f);
-		//pointModif.oTexture.load();
-		
-		FadeOutModifier fadeOut = new FadeOutModifier(2);
-		ScaleModifier scaleUp = new ScaleModifier(2, 1, 3);
-		levelsprt.registerEntityModifier(fadeOut);
-		levelsprt.registerEntityModifier(scaleUp);
-		levelScene.attachChild(levelsprt);
-	}
-	public void modifLines(float x1,float y1,float x2,float y2,int lineWidth){
-		Line line=new Line(x1, y1,x2, y2, lineWidth,
-				engine.getVertexBufferObjectManager());
-		line.setColor(Color.parseColor("#FF0000"));
-		
-		FadeOutModifier fadeOut = new FadeOutModifier(2);
-		
-		line.registerEntityModifier(fadeOut);
-		gameScene.attachChild(line);
-	}
+
 	public void drawLine(float x1,float y1,float x2,float y2,int lineWidth){
 		cizgi[cizgiCount] = new Line(x1, y1,x2, y2, lineWidth,
 				engine.getVertexBufferObjectManager());
 		
 		cizgi[cizgiCount].setColor(Color.parseColor("#85B3FF"));
+		if (isMultiPlayGame) {
+			multiPlayerGameScene.attachChild(cizgi[cizgiCount]);
+		}else gameScene.attachChild(cizgi[cizgiCount]);
 		
-		gameScene.attachChild(cizgi[cizgiCount]);
 		cizgiCount++;
 	}
 	
@@ -678,55 +845,7 @@ public class SceneManager {
 		return true;
 		
 	}
-	public void createPlayedLevel(int hamle,int noktaCount){
-		List<String> cizilmeyenCizgiList = new ArrayList<String>();
-		List<Integer> cizilecekCizgiList = new ArrayList<Integer>();
-		cizilmeyenCizgiList.clear();
-		String veri="";
-		hamleliOyunMu=true;
-		for (int i = 0; i < noktaCount; i++) {
-			for (int j = 0; j < noktaCount; j++) {
-				if (j>i) {
-					veri=""+i+"-"+j;
-					cizilmeyenCizgiList.add(veri);
-				}
-			}
-		}
-		while (cizilmeyenCizgiList.size() > 0) {
-
-			randomSayi = new Random();
-			int sayi =1+ randomSayi.nextInt(cizilmeyenCizgiList.size());
-			String cizilecek = cizilmeyenCizgiList.get(sayi-1);
-
-			String[] parts = cizilecek.split("-");
-			int part1 = Integer.valueOf(parts[0]);
-			int part2 = Integer.valueOf(parts[1]);
-
-			cizilenCizgiArray[part1][part2] = true;
-			cizilenCizgiArray[part2][part1] = true;
-			if (triControl.fonkTriangleControl() == null) {
-				cizilecekCizgiList.add(part1);
-				cizilecekCizgiList.add(part2);
-				cizilmeyenCizgiList.remove(sayi-1);
-			} else {
-				cizilenCizgiArray[part1][part2] = false;
-				cizilenCizgiArray[part2][part1] = false;
-				cizilmeyenCizgiList.remove(sayi-1);
-			}
-		}
-		for (int i = 1; i < hamle*2; i=i+2) {
-			cizilenCizgiArray[cizilecekCizgiList.get(cizilecekCizgiList.size()-i)][cizilecekCizgiList.get(cizilecekCizgiList.size()-(i+1))] = false;
-			cizilenCizgiArray[cizilecekCizgiList.get(cizilecekCizgiList.size()-(i+1))][cizilecekCizgiList.get(cizilecekCizgiList.size()-i)] = false;
-		}
-		for (int i = 0; i < cizilecekCizgiList.size() - (hamle * 2); i = i + 2) {
-			drawLine(koordinatlar[cizilecekCizgiList.get(i)][0],
-					koordinatlar[cizilecekCizgiList.get(i)][1],
-					koordinatlar[cizilecekCizgiList.get(i + 1)][0],
-					koordinatlar[cizilecekCizgiList.get(i + 1)][1], 10);
-		}
-		
-		
-	}
+	
 	public boolean playComputer(){
 		List<String> cizilmeyenCizgiList = new ArrayList<String>();
 		cizilmeyenCizgiList.clear();
@@ -754,7 +873,7 @@ public class SceneManager {
 			cizilenCizgiArray[part2][part1]=true;
 			if (triControl.fonkTriangleControl() == null) {
 				drawLine(koordinatlar[part1][0], koordinatlar[part1][1], koordinatlar[part2][0], koordinatlar[part2][1], 10);
-				modifLines(koordinatlar[part1][0], koordinatlar[part1][1], koordinatlar[part2][0], koordinatlar[part2][1], 10);
+				modifNsn.modifLines(koordinatlar[part1][0], koordinatlar[part1][1], koordinatlar[part2][0], koordinatlar[part2][1], 10);
 				return true;
 			}
 			else{
@@ -784,9 +903,15 @@ public class SceneManager {
 				koordinatlar[ucgen[0]][0], koordinatlar[ucgen[0]][1], 10,
 				engine.getVertexBufferObjectManager());
 		cizgi2.setColor(1.0f, 0.0f, 0.0f);
+		if (isMultiPlayGame) {
+			multiPlayerGameScene.attachChild(cizgi0);
+			multiPlayerGameScene.attachChild(cizgi1);
+			multiPlayerGameScene.attachChild(cizgi2);
+		}else{
 		gameScene.attachChild(cizgi0);
 		gameScene.attachChild(cizgi1);
 		gameScene.attachChild(cizgi2);
+		}
 	}
 	public AllScenes getCurrentScene() {
 		return currentScene;
@@ -797,7 +922,6 @@ public class SceneManager {
 		
 		switch (currentScene) {
 		case SPLASH:
-
 			break;
 		case MENU:
 			engine.setScene(menuScene);
@@ -807,6 +931,12 @@ public class SceneManager {
 			break;
 		case LEVELS:
 			engine.setScene(levelScene);
+			break;
+		case MULTIGAME:
+			engine.setScene(multiPlayerGameScene);
+			break;
+		case MULTILOADING:
+			engine.setScene(multiLoadingScene);
 			break;
 		default:
 			break;

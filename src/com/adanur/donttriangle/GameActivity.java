@@ -21,6 +21,7 @@ import org.andengine.ui.activity.BaseGameActivity;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
+import app.shephertz.multiplayer.WarpController;
 
 import com.adanur.donttriangle.SceneManager.AllScenes;
 
@@ -51,8 +52,7 @@ public class GameActivity extends BaseGameActivity {
 		// TODO Auto-generated method stub
 		sceneManager=new SceneManager(this, mEngine, mCamera,db);
 		sceneManager.loadGameResources();
-		//loadGfx();
-		// resource
+
 		pOnCreateResourcesCallback.onCreateResourcesFinished();
 	}
 
@@ -68,12 +68,17 @@ public class GameActivity extends BaseGameActivity {
 	public void onBackPressed()
 	{
 	    
-	    if(sceneManager.getCurrentScene() == AllScenes.GAME && mEngine.getScene().getChildScene()==null){
+	    if((sceneManager.getCurrentScene() == AllScenes.GAME || sceneManager.getCurrentScene() == AllScenes.MULTIGAME)
+	    		&& mEngine.getScene().getChildScene()==null){
 	    	
 			sceneManager.createGamePauseScene();
 			
 			
 	    }
+	    else if (sceneManager.getCurrentScene() == AllScenes.MULTILOADING) {
+			sceneManager.setCurrentScene(AllScenes.MENU);
+			WarpController.getInstance().stopApp();
+		}
 	    else{
 	        //this.finish();
 	    }
